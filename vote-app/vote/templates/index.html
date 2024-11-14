@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ option_a }} vs {{ option_b }} vs {{ option_c }}!</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel='stylesheet' href="{{ url_for('static', filename='stylesheets/style.css') }}" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div id="content-container">
+        <div id="content-container-center">
+            <div id="columns-container"> <!-- Contenedor para las dos columnas -->
+                <!-- Columna de votos -->
+                <div class="column" id="votes-column">
+                    <h3>{{ option_a }} vs {{ option_b }} vs {{ option_c }}!</h3>
+                    <form id="choice" name='form' method="POST" action="/">
+                        <button id="a" type="submit" name="vote" class="a" value="a">{{ option_a }}</button>
+                        <button id="b" type="submit" name="vote" class="b" value="b">{{ option_b }}</button>
+                        <button id="c" type="submit" name="vote" class="c" value="c">{{ option_c }}</button>
+                    </form>
+                    <div id="tip">(Consejo: puedes cambiar tu voto)</div>
+                    <div id="hostname">Procesado por el contenedor ID {{ hostname }}</div>
+                </div>
+    
+                <!-- Columna de Kafka -->
+                <div class="column" id="kafka-column">
+                    <button class="kafka-button" id="start-kafka" onclick="startKafka()">Iniciar Kafka</button>
+                    <button class="kafka-button" id="stop-kafka" onclick="stopKafka()">Detener Kafka</button>
+    
+                    <div id="kafka-status"></div> <!-- Mensaje de estado de Kafka -->
+    
+                    <div id="kafka-received">
+                        <h4>Mensajes recibidos de Kafka:</h4>
+                        <ul id="received-messages-list"></ul>
+                    </div>
+                </div>
+            </div>
+    
+            <div id="top-movies">
+                <h4>Mejores películas para los usuarios:</h4>
+                <ul id="top-movies-list">
+                    {% if best_movies %}
+                        {% for movie in best_movies %}
+                            <li>{{ movie[1] }} (ID: {{ movie[0] }})</li>
+                        {% endfor %}
+                    {% else %}
+                        <li>No hay películas para mostrar.</li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+        </div>
+    </div>
+    
+
+    <script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.js"></script>
+
+    {% if vote %}
+    <script>
+        var vote = "{{ vote }}";
+
+        if (vote == "a") {
+            $(".a").prop('disabled', true);
+            $(".a").html('{{ option_a }} <i class="fa fa-check-circle"></i>');
+            $(".b").css('opacity', '0.5');
+            $(".c").css('opacity', '0.5');  
+        }
+        if (vote == "b") {
+            $(".b").prop('disabled', true);
+            $(".b").html('{{ option_b }} <i class="fa fa-check-circle"></i>');
+            $(".a").css('opacity', '0.5');
+            $(".c").css('opacity', '0.5');  
+        }
+        if (vote == "c") {  
+            $(".c").prop('disabled', true);
+            $(".c").html('{{ option_c }} <i class="fa fa-check-circle"></i>');
+            $(".a").css('opacity', '0.5');
+            $(".b").css('opacity', '0.5');  
+        }
+    </script>
+    {% endif %}
+
+    <script>
+        function startKafka() {
+            $.post('/start-kafka', function(data) {
+                console.log(data.status);
+                $("#kafka-status").text("Enviando mensajes a Kafka..."); // Mostrar mensaje de estado
+            });
+        }
+
+        function stopKafka() {
+            $.post('/stop-kafka', function(data) {
+                console.log(data.status);
+                $("#kafka-status").text("Kafka detenido."); // Mostrar mensaje de estado
+            });
+        }
+
+        function fetchKafkaData() {
+            $.get('/kafka-data', function(data) {
+                $('#received-messages-list').empty(); // Limpiar la lista antes de agregar nuevos mensajes
+                data.forEach(function(message) {
+                    const currentTime = new Date().toLocaleTimeString();
+                    $('#received-messages-list').append('<li>' + message + ' (Recibido a las: ' + currentTime + ')</li>');
+                });
+            });
+        }
+
+        // Establece el intervalo para recibir datos
+        setInterval(fetchKafkaData, 5000); // Consultar mensajes cada 5 segundos
+    </script>
+
+<script>
+    async function fetchTopMovies() {
+        const response = await fetch('/api/top-movies');
+        const movies = await response.json();
+
+        const moviesList = document.getElementById('top-movies-list');
+        moviesList.innerHTML = ''; // Limpiar la lista antes de agregar nuevos elementos
+
+        movies.forEach(movie => {
+            const movieItem = document.createElement('li');
+            movieItem.innerText = `${movie.title} - Rating: ${movie.average_rating.toFixed(2)} (Usuario: ${movie.user_id})`;
+            moviesList.appendChild(movieItem);
+        });
+    }
+
+    // Llama a la función para obtener las mejores películas al cargar la página
+    fetchTopMovies();
+</script>
+
+</body>
+</html>
